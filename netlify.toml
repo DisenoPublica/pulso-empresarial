@@ -1,0 +1,12 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# El panel pide /api/pulso; Netlify lo resuelve a la función de lectura.
+[[redirects]]
+  from = "/api/pulso"
+  to = "/.netlify/functions/pulso"
+  status = 200
