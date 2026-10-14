@@ -109,7 +109,10 @@ const PLAT_MAP = {
   blog: 'foros', blogs: 'foros', forum: 'foros', forums: 'foros',
   review: 'foros', reviews: 'foros', comment: 'foros', message_board: 'foros',
   consumer_review: 'foros',
-  twitter: 'x', x: 'x',
+  twitter: 'x', x: 'x', microblog_post: 'x', microblog: 'x', tweet: 'x',
+  news_article: 'prensa', print_article: 'prensa', broadcast_segment: 'prensa', podcast_episode: 'prensa',
+  social_post: 'redes', social_comment: 'redes', image_post: 'redes',
+  video_post: 'video', video: 'video', forum_post: 'foros', blog_post: 'foros', comment_post: 'foros', review_post: 'foros',
   facebook: 'redes', instagram: 'redes', tiktok: 'redes', linkedin: 'redes',
   reddit: 'redes', threads: 'redes', bluesky: 'redes', mastodon: 'redes',
   youtube: 'video', vimeo: 'video', twitch: 'video', video: 'video'
@@ -159,8 +162,15 @@ export async function leer() {
 
 let llamadas = 0;
 
-export async function mw(path, body, reintentos = 1) {
+// Meltwater limita también por minuto: espaciamos las llamadas y, ante un 429,
+// esperamos y reintentamos (la función de refresco corre en background, hasta 15 min).
+const PAUSA_MS = Number(process.env.PULSO_PAUSA_MS || 4000);
+let ultima = 0;
+export async function mw(path, body, reintentos = 4) {
   if (llamadas >= TOPE) throw new Error('Tope de llamadas por corrida alcanzado (' + TOPE + ')');
+  const falta = ultima + PAUSA_MS - Date.now();
+  if (falta > 0) await new Promise((r) => setTimeout(r, falta));
+  ultima = Date.now();
   llamadas++;
   const res = await fetch(API + path, {
     method: body ? 'POST' : 'GET',
@@ -172,7 +182,7 @@ export async function mw(path, body, reintentos = 1) {
     body: body ? JSON.stringify(body) : undefined
   });
   if (res.status === 429 && reintentos > 0) {
-    const espera = Number(res.headers.get('retry-after') || 0) * 1000 || 3000;
+    const espera = Number(res.headers.get('retry-after') || 0) * 1000 || 20000 * (5 - reintentos);
     await new Promise((r) => setTimeout(r, espera));
     return mw(path, body, reintentos - 1);
   }
